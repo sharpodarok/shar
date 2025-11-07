@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Учет шариков</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  h2 { margin-top: 40px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+  .group-section { margin-bottom: 40px; }
+  button { margin: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Учет шариков в магазине</h1>
+
+<!-- Форма добавления -->
+<form id="addForm">
+  <h3>Добавить шарик</h3>
+  Название: <input type="text" id="name" required />
+  Количество: <input type="number" id="quantity" min="0" required />
+  Группа:
+  <select id="group">
+    <option value="фольга">Фольга</option>
+    <option value="фигуры">Фигуры</option>
+    <option value="латекс">Латекс</option>
+    <option value="хром">Хром</option>
+  </select>
+  Фото: <input type="file" id="photo" accept="image/*" />
+  <button type="submit">Добавить</button>
+</form>
+
+<div id="inventory"></div>
+
+<script>
+  // Изначальные группы
+  const defaultGroups = ['фольга', 'фигуры', 'латекс', 'хром', 'нет в наличии'];
+  
+  // Инициализация данных из localStorage или дефолтных
+  let inventoryData = JSON.parse(localStorage.getItem('inventoryData')) || {
+    фольга: [],
+    фигуры: [],
+    латекс: [],
+    хром: [],
+    'нет в наличии': []
+  };
+
+  const addForm = document.getElementById('addForm');
+
+  // Функция для сохранения данных
+  function saveData() {
+    localStorage.setItem('inventoryData', JSON.stringify(inventoryData));
+  }
+
+  // Создать массив всех групп
+  function getAllGroups() {
+    return Object.keys(inventoryData);
+  }
+
+  // рендер всей инвентаризации
+function renderInventory() {
+
+  const container = document.getElementById('inventory');
+  container.innerHTML = '';
+
+  for (const group of getAllGroups()) {
+    const section = document.createElement('div');
+    section.className = 'group-section';
+
+    const title = document.createElement('h2');
+    title.textContent = group;
+    section.appendChild(title);
+
+    const table = document.createElement('table');
+    const header = document.createElement('tr');
+    ['Фото', 'Название', 'Количество', 'Группа', 'Действия'].forEach(text => {
+      const th = document.createElement('th');
+      th.textContent = text;
+      header.appendChild(th);
+    });
+    table.appendChild(header);
+
+    inventoryData[group].forEach((item, index) => {
+      const row = document.createElement('tr');
+
+      // Фото
+      const photoTd = document.createElement('td');
+      if (item.photoUrl) {
+        const img = document.createElement('img');
+        img.src = item.photoUrl;
+        img.width = 50;
+        photoTd.appendChild(img);
+      } else {
+        photoTd.textContent = 'Нет фото';
+      }
+      row.appendChild(photoTd);
+
+      // Название (редактируемое)
+      const nameTd = document.createElement('td');
+      nameTd.textContent = item.name;
+      nameTd.contentEditable = true;
+      row.appendChild(nameTd);
+
+      // Количество (редактируемое)
+      const qtyTd = document.createElement('td');
+      qtyTd.textContent = item.quantity;
+      qtyTd.contentEditable = true;
+      qtyTd.onblur = () => {
+        const newQty = parseInt(qtyTd.textContent);
+        if (!isNaN(newQty) && newQty >= 0) {
+          item.quantity = newQty;
+          // автоматический перенос при количестве 0
+          if (newQty === 0 && group !== 'нет в наличии') {
+            moveItemToGroup(item, group, 'нет в наличии');
+            renderInventory();
+            saveData();
+          } else {
+            saveData();
+          }
+        } else {
+          alert('Введите допустимое число');
+          qtyTd.textContent = item.quantity;
+        }
+      };
+      row.appendChild(qtyTd);
+
+      // Группа (редактируемое через select)
+      const groupTd = document.createElement('td');
+      const groupSelect = document.createElement('select');
+
+      Object.keys(inventoryData).forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g;
+        opt.textContent = g;
+        if (g === group) opt.selected = true;
+        groupSelect.appendChild(opt);
+      });
+
+      groupSelect.onchange = () => {
+        const newGroup = groupSelect.value;
+        if (newGroup !== group) {
+          moveItemToGroup(item, group, newGroup);
+          renderInventory();
+          saveData();
+        }
+      };
+      groupTd.appendChild(groupSelect);
+      row.appendChild(groupTd);
+
+      // Действия
+      const actionTd = document.createElement('td');
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Сохранить';
+      saveBtn.onclick = () => {
+        // Обновление названия
+        item.name = nameTd.textContent;
+        // Обновление количества
+        const newQty = parseInt(qtyTd.textContent);
+        if (!isNaN(newQty) && newQty >= 0) {
+          item.quantity = newQty;
+          if (newQty === 0 && group !== 'нет в наличии') {
+            moveItemToGroup(item, group, 'нет в наличии');
+            renderInventory();
+            saveData();
+          } else {
+            saveData();
+          }
+          alert('Данные сохранены');
+        } else {
+          alert('Некорректное число');
+          qtyTd.textContent = item.quantity;
+        }
+      };
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Удалить';
+      deleteBtn.onclick = () => {
+        // удалить из текущей группы
+        const idx = inventoryData[group].indexOf(item);
+        if (idx !== -1) {
+          inventoryData[group].splice(idx, 1);
+          renderInventory();
+          saveData();
+        }
+      };
+
+      const moveToNoBtn = document.createElement('button');
+      moveToNoBtn.textContent = 'В "нет в наличии"';
+      moveToNoBtn.onclick = () => {
+        moveItemToGroup(item, group, 'нет в наличии');
+        renderInventory();
+        saveData();
+      };
+
+      // Восстановить из "нет в наличии" обратно
+      const restoreBtn = document.createElement('button');
+      restoreBtn.textContent = 'Вернуть в группу';
+      restoreBtn.onclick = () => {
+        const targetGroup = prompt('Введите название группы (фольга, фигуры, латекс, хром):', 'фольга');
+        if (targetGroup && Object.keys(inventoryData).includes(targetGroup)) {
+          moveItemToGroup(item, 'нет в наличии', targetGroup);
+          renderInventory();
+          saveData();
+        } else {
+          alert('Некорректное название группы');
+        }
+      };
+
+      actionTd.appendChild(saveBtn);
+      actionTd.appendChild(deleteBtn);
+      actionTd.appendChild(moveToNoBtn);
+      // Можно оставить кнопку восстановления по желанию
+      // actionTd.appendChild(restoreBtn);
+
+      row.appendChild(actionTd);
+
+      table.appendChild(row);
+    });
+
+    section.appendChild(table);
+    container.appendChild(section);
+  }
+}
+
+// функция перемещения
+function moveItemToGroup(item, fromGroup, toGroup) {
+  // ищем объект
+  const index = inventoryData[fromGroup].indexOf(item);
+  if (index !== -1) {
+    inventoryData[fromGroup].splice(index, 1);
+    inventoryData[toGroup].push(item);
+  }
+}
+
+// Обработка добавления
+document.getElementById('addForm').onsubmit = (e) => {
+  e.preventDefault();
+  const name = document.getElementById('name').value;
+  const quantity = parseInt(document.getElementById('quantity').value);
+  const group = document.getElementById('group').value;
+  const photoInput = document.getElementById('photo');
+
+  let photoUrl = '';
+  if (photoInput.files[0]) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      photoUrl = reader.result;
+      addItem({ name, quantity, photoUrl, group });
+    };
+    reader.readAsDataURL(photoInput.files[0]);
+  } else {
+    addItem({ name, quantity, photoUrl, group });
+  }
+  document.getElementById('addForm').reset();
+};
+
+// добавление нового товара
+function addItem(item) {
+  // Если количество ноль, пусть по умолчанию товар идет в "нет в наличии" или в выбранную группу
+  // Пока добавляем в выбранную группу
+  inventoryData[item.group].push(item);
+  saveData();
+  renderInventory();
+}
+
+// автоматическая периодическая проверка для обновления с localStorage
+setInterval(() => {
+  const savedData = JSON.parse(localStorage.getItem('inventoryData'));
+  if (savedData) {
+    // сравнить с текущими данными
+    const currentStr = JSON.stringify(inventoryData);
+    const savedStr = JSON.stringify(savedData);
+    if (currentStr !== savedStr) {
+      inventoryData = savedData;
+      renderInventory();
+    }
+  }
+}, 3000); // проверка каждые 3 секунды
+
+// Изначальный запуск
+renderInventory();
+
+</script>
+</body>
+</html>
