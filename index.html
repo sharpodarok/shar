@@ -2,197 +2,302 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8" />
-<title>Инвентарь товаров</title>
-<style>
-  .group {
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 15px;
-  }
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-  li {
-    margin-bottom: 5px;
-  }
-</style>
-</head>
-<body>
-<h1>Инвентарь товаров</h1>
-
-<div>
-  <input type="text" id="nameInput" placeholder="Имя товара" />
-  <input type="number" id="quantityInput" placeholder="Количество" />
-  <select id="groupSelect">
-    <option value="Розницы">Розницы</option>
-    <option value="Опт">Опт</option>
-    <option value="Интернет">Интернет</option>
-    <option value="Магазин">Магазин</option>
-  </select>
-  <button id="addButton">Добавить товар</button>
-</div>
-
-<div id="inventoryContainer"></div>
-
+<title>Инвентарь</title>
 <!-- Подключение Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
+</head>
+<body>
+<h1>Инвентарь</h1>
+
+<!-- Форма добавления товара -->
+<form id="addForm">
+  <input type="text" id="name" placeholder="Название товара" required />
+  <input type="number" id="quantity" placeholder="Количество" min="0" required />
+  <select id="group">
+    <option value="фольга">фольга</option>
+    <option value="латекс">латекс</option>
+    <option value="хром">хром</option>
+    <option value="фигуры">фигуры</option>
+  </select>
+  <input type="file" id="photo" accept="image/*" />
+  <button type="submit">Добавить товар</button>
+</form>
+
+<div id="inventoryContainer"></div>
 
 <script>
-  // Ваша конфигурация Firebase - замените на свои параметры
+  // ВАША конфигурация Firebase
   const firebaseConfig = {
-    apiKey: "ВАШ_API_КЛЮЧ",
-    authDomain: "ВАШ_ДОМЕН",
-    projectId: "ВАШ_PROJECT_ID",
-    // остальные параметры...
+    apiKey: "AIzaSyCDhmrq_EjhUC65ddcKABRYGZjFxSVah1M",
+    authDomain: "shar-d04bb.firebaseapp.com",
+    projectId: "shar-d04bb",
+    storageBucket: "shar-d04bb.firebasestorage.app",
+    messagingSenderId: "398332289232",
+    appId: "1:398332289232:web:68d16813abe06580d13ed5",
+    measurementId: "G-DXTCBFZYH6"
   };
+  
   // Инициализация Firebase
-  const app = firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
+  // Изначальная структура данных
   let inventoryData = {};
 
-  // 1. Загрузка данных из Firestore
+  // 1. Загрузка из Firestore
   async function loadData() {
     try {
       const snapshot = await db.collection('inventory').doc('data').get();
       if (snapshot.exists) {
         inventoryData = snapshot.data() || {};
+        console.log('Данные загружены:', inventoryData);
       } else {
-        // Структура по умолчанию, если данных нет
+        // Нет данных, создаем структуру
         inventoryData = {
-          'Розницы': [],
-          'Опт': [],
-          'Интернет': [],
-          'Магазин': [],
+          'фольга': [],
+          'латекс': [],
+          'хром': [],
+          'фигуры': [],
         };
         await saveData();
+        console.log('Создана новая структура данных');
       }
     } catch (err) {
       console.error('Ошибка загрузки данных:', err);
-      // Инициализация по умолчанию при ошибке
+      // Инициализация
       inventoryData = {
-        'Розницы': [],
-        'Опт': [],
-        'Интернет': [],
-        'Магазин': [],
+        'фольга': [],
+        'латекс': [],
+        'хром': [],
+        'фигуры': [],
       };
     }
   }
 
-  // 2. Сохранение данных в Firestore
+  // 2. Сохранение
   async function saveData() {
     try {
       await db.collection('inventory').doc('data').set(inventoryData);
+      console.log('Данные сохранены:', inventoryData);
     } catch (err) {
       console.error('Ошибка сохранения данных:', err);
     }
   }
 
-  // 3. Отрисовка инвентаря
-  const inventoryContainer = document.getElementById('inventoryContainer');
+  // 3. Рендеринг
+  const container = document.getElementById('inventoryContainer');
 
   function renderInventory() {
-    inventoryContainer.innerHTML = '';
+    container.innerHTML = '';
 
     for (const group in inventoryData) {
-      const groupDiv = document.createElement('div');
-      groupDiv.className = 'group';
+      const section = document.createElement('div');
+      section.className = 'group';
 
-      const groupTitle = document.createElement('h2');
-      groupTitle.textContent = group;
-      groupDiv.appendChild(groupTitle);
+      const title = document.createElement('h2');
+      title.textContent = group;
+      section.appendChild(title);
 
-      const list = document.createElement('ul');
+      const table = document.createElement('table');
+      table.border = "1";
 
       inventoryData[group].forEach((item, index) => {
-        const listItem = document.createElement('li');
-        listItem.innerHTML = `
-          <button onclick="moveItem('${group}', ${index})">Переместить</button>
-          <button onclick="removeItem('${group}', ${index})">Удалить</button>
-          ${item.name} - ${item.quantity} шт.
-          <button onclick="editItem('${group}', ${index})">Редактировать</button>
-        `;
-        list.appendChild(listItem);
+        const row = document.createElement('tr');
+
+        // Фото (если есть)
+        const photoTd = document.createElement('td');
+        if (item.photoUrl) {
+          const img = document.createElement('img');
+          img.src = item.photoUrl;
+          img.width = 50;
+          photoTd.appendChild(img);
+        }
+        row.appendChild(photoTd);
+
+        // Название
+        const nameTd = document.createElement('td');
+        nameTd.contentEditable = true;
+        nameTd.textContent = item.name;
+
+        row.appendChild(nameTd);
+
+        // Количество
+        const qtyTd = document.createElement('td');
+        qtyTd.contentEditable = true;
+        qtyTd.textContent = item.quantity;
+
+        // Вешаем blur обработчик для обновления
+        const blurHandler = () => {
+          const newQty = parseInt(qtyTd.textContent);
+          if (!isNaN(newQty) && newQty >= 0) {
+            item.quantity = newQty;
+            if (newQty === 0 && group !== 'нет в наличии') {
+              moveItemToGroup(item, group, 'нет в наличии');
+              renderInventory();
+              saveData();
+            } else {
+              saveData();
+            }
+          } else {
+            alert('Введите допустимое число');
+            qtyTd.textContent = item.quantity;
+          }
+        };
+        qtyTd.onblur = blurHandler;
+        row.appendChild(qtyTd);
+
+        // Группа
+        const groupTd = document.createElement('td');
+        const groupSelect = document.createElement('select');
+
+        Object.keys(inventoryData).forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g;
+          opt.textContent = g;
+          if (g === group) opt.selected = true;
+          groupSelect.appendChild(opt);
+        });
+
+        groupSelect.onchange = () => {
+          const newGroup = groupSelect.value;
+          if (newGroup !== group) {
+            moveItemToGroup(item, group, newGroup);
+            renderInventory();
+            saveData();
+          }
+        };
+        groupTd.appendChild(groupSelect);
+        row.appendChild(groupTd);
+
+        // Действия
+        const actionTd = document.createElement('td');
+
+        // Сохранить
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Сохранить';
+        saveBtn.onclick = () => {
+          // Обновить название
+          item.name = nameTd.textContent.trim();
+
+          // Обновить количество
+          const newQty = parseInt(qtyTd.textContent);
+          if (!isNaN(newQty) && newQty >= 0) {
+            item.quantity = newQty;
+            if (newQty === 0 && group !== 'нет в наличии') {
+              moveItemToGroup(item, group, 'нет в наличии');
+              renderInventory();
+              saveData();
+            } else {
+              saveData();
+            }
+            alert('Данные сохранены');
+          } else {
+            alert('Некорректное число');
+            qtyTd.textContent = item.quantity;
+          }
+        };
+
+        // Удалить
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Удалить';
+        deleteBtn.onclick = () => {
+          const idx = inventoryData[group].indexOf(item);
+          if (idx !== -1) {
+            inventoryData[group].splice(idx,1);
+            renderInventory();
+            saveData();
+          }
+        };
+
+        // В "нет в наличии"
+        const moveToNoBtn = document.createElement('button');
+        moveToNoBtn.textContent = 'В "нет в наличии"';
+        moveToNoBtn.onclick = () => {
+          moveItemToGroup(item, group, 'нет в наличии');
+          renderInventory();
+          saveData();
+        };
+
+        // Восстановить из "нет в наличии"
+        const restoreBtn = document.createElement('button');
+        restoreBtn.textContent = 'Вернуть в группу';
+        restoreBtn.onclick = () => {
+          const targetGroup = prompt('Введите название группы (фольга, латекс, хром, фигуры):', 'фольга');
+          if (targetGroup && Object.keys(inventoryData).includes(targetGroup)) {
+            moveItemToGroup(item, 'нет в наличии', targetGroup);
+            renderInventory();
+            saveData();
+          } else {
+            alert('Некорректное название группы');
+          }
+        };
+
+        actionTd.appendChild(saveBtn);
+        actionTd.appendChild(deleteBtn);
+        actionTd.appendChild(moveToNoBtn);
+        // Можно раскомментировать, чтобы включить восстановление
+        // actionTd.appendChild(restoreBtn);
+
+        row.appendChild(actionTd);
+        table.appendChild(row);
       });
 
-      groupDiv.appendChild(list);
-      inventoryContainer.appendChild(groupDiv);
+      section.appendChild(table);
+      container.appendChild(section);
     }
   }
 
-  // 4. Добавление нового товара
- document.getElementById('addButton').addEventListener('click', () => {
-    const nameInput = document.getElementById('nameInput');
-    const quantityInput = document.getElementById('quantityInput');
-    const groupSelect = document.getElementById('groupSelect');
+  // Перемещение элемента между группами
+  function moveItemToGroup(item, fromGroup, toGroup) {
+    const index = inventoryData[fromGroup].indexOf(item);
+    if (index !== -1) {
+      inventoryData[fromGroup].splice(index,1);
+      if (!inventoryData[toGroup]) {
+        inventoryData[toGroup] = [];
+      }
+      inventoryData[toGroup].push(item);
+    }
+  }
 
-    const name = nameInput.value.trim();
-    const quantity = parseInt(quantityInput.value, 10);
-    const group = groupSelect.value;
+  // Обработка формы добавления
+  document.getElementById('addForm').onsubmit = (e) => {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const qtyStr = document.getElementById('quantity').value;
+    const group = document.getElementById('group').value;
+    const photoInput = document.getElementById('photo');
 
-    if (!name || isNaN(quantity) || quantity <= 0) {
-      alert('Пожалуйста, введите корректное имя и количество.');
+    const quantity = parseInt(qtyStr);
+    if (!name || isNaN(quantity) || quantity < 0) {
+      alert('Пожалуйста, заполните все поля корректно');
       return;
     }
 
-    const newItem = { name, quantity };
-
-    if (!inventoryData[group]) {
-      inventoryData[group] = [];
+    if (photoInput.files[0]) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const photoUrl = reader.result;
+        addItem({ name, quantity, photoUrl, group });
+      };
+      reader.readAsDataURL(photoInput.files[0]);
+    } else {
+      addItem({ name, quantity, photoUrl: '', group });
     }
 
-    inventoryData[group].push(newItem);
+    document.getElementById('addForm').reset();
+  };
+
+  function addItem(item) {
+    if (!inventoryData[item.group]) {
+      inventoryData[item.group] = [];
+    }
+    inventoryData[item.group].push(item);
     saveData();
     renderInventory();
-
-    // Очищение полей
-    nameInput.value = '';
-    quantityInput.value = '';
-  });
-
-  // 5. Удаление товара
-  function removeItem(group, index) {
-    if (inventoryData[group]) {
-      inventoryData[group].splice(index, 1);
-      saveData();
-      renderInventory();
-    }
   }
 
-  // 6. Перемещение товара
-  function moveItem(currentGroup, index) {
-    const item = inventoryData[currentGroup][index];
-    const targetGroup = prompt(`Введите группу для перемещения (${Object.keys(inventoryData).join(',')}):`, currentGroup);
-    if (targetGroup && inventoryData[targetGroup]) {
-      // Перемещаем товар
-      inventoryData[targetGroup].push(item);
-      inventoryData[currentGroup].splice(index, 1);
-      saveData();
-      renderInventory();
-    } else {
-      alert('Некорректная группа');
-    }
-  }
-
-  // 7. Редактирование товара
-  function editItem(group, index) {
-    const item = inventoryData[group][index];
-    const newName = prompt('Введите новое имя', item.name);
-    const newQuantityStr = prompt('Введите новое количество', item.quantity);
-    const newQuantity = parseInt(newQuantityStr, 10);
-
-    if (newName !== null && newQuantityStr !== null && !isNaN(newQuantity) && newQuantity > 0) {
-      inventoryData[group][index] = { name: newName.trim(), quantity: newQuantity };
-      saveData();
-      renderInventory();
-    } else {
-      alert('Некорректные данные');
-    }
-  }
-
-  // 8. Инициализация
+  // Инициализация
   (async () => {
     await loadData();
     renderInventory();
